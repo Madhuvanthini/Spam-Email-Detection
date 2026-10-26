@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spam Email Detection Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--text:#1c2333;--muted:#667085;--line:#e4e7ee;--spam:#e5484d;--ham:#2f7de1;--ok:#2a9d6f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1420;--card:#182032;--text:#e8ecf5;--muted:#9aa5bd;--line:#2a3550;--spam:#ff6b70;--ham:#5b9cf0;--ok:#4cc794}}
+:root[data-theme="dark"]{--bg:#0f1420;--card:#182032;--text:#e8ecf5;--muted:#9aa5bd;--line:#2a3550;--spam:#ff6b70;--ham:#5b9cf0;--ok:#4cc794}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 16px 40px}
+h1{font-size:1.5rem;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px;font-size:.9rem}
+.grid{display:grid;gap:14px}
+.kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px}
+.two{grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h2{font-size:.95rem;margin:0 0 12px}
+.k .l{color:var(--muted);font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+.k .v{font-size:1.9rem;font-weight:700;margin-top:4px}
+.k .n{color:var(--muted);font-size:.78rem;margin-top:2px}
+.ch{position:relative;height:260px}
+.cm{display:grid;grid-template-columns:auto 1fr 1fr;gap:6px;align-items:stretch;text-align:center;font-size:.85rem}
+.cm div{padding:14px 6px;border-radius:10px}
+.cm .h{color:var(--muted);font-size:.75rem;padding:6px}
+.good{background:color-mix(in srgb,var(--ok) 22%,transparent)}
+.bad{background:color-mix(in srgb,var(--spam) 22%,transparent)}
+.zero{background:var(--bg)}
+.cm b{display:block;font-size:1.5rem}
+.note{color:var(--muted);font-size:.8rem;margin:10px 0 0}
+.bar{display:flex;align-items:center;gap:8px;margin:7px 0;font-size:.85rem}
+.bar span:first-child{width:70px}
+.bar .t{flex:1;height:10px;background:var(--bg);border-radius:6px;overflow:hidden}
+.bar .t i{display:block;height:100%;border-radius:6px}
+.bar span:last-child{width:40px;text-align:right;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Spam Email Detection Dashboard</h1>
+  <p class="sub">5,572 labelled messages · model evaluated on 1,115 held-out test messages</p>
+
+  <div class="grid kpis">
+    <div class="card k"><div class="l">Total messages</div><div class="v">5,572</div></div>
+    <div class="card k"><div class="l">Spam</div><div class="v" style="color:var(--spam)">747</div><div class="n">13.4% of dataset</div></div>
+    <div class="card k"><div class="l">Not spam</div><div class="v" style="color:var(--ham)">4,825</div><div class="n">86.6% of dataset</div></div>
+    <div class="card k"><div class="l">Accuracy</div><div class="v">96.1%</div><div class="n">1,071 of 1,115 correct</div></div>
+    <div class="card k"><div class="l">Precision</div><div class="v">100%</div><div class="n">no false alarms</div></div>
+    <div class="card k"><div class="l">Recall</div><div class="v">70.5%</div><div class="n">F1 82.7%</div></div>
+  </div>
+
+  <div class="grid two">
+    <div class="card"><h2>Spam vs. not spam</h2><div class="ch"><canvas id="c1"></canvas></div></div>
+    <div class="card"><h2>Model metrics</h2><div class="ch"><canvas id="c2"></canvas></div></div>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>Confusion matrix (test set)</h2>
+      <div class="cm">
+        <div class="h"></div><div class="h">Predicted spam</div><div class="h">Predicted ham</div>
+        <div class="h">Actual spam</div><div class="good"><b>105</b>true positive</div><div class="bad"><b>44</b>missed spam</div>
+        <div class="h">Actual ham</div><div class="zero"><b>0</b>false positive</div><div class="good"><b>966</b>true negative</div>
+      </div>
+      <p class="note">The model never flagged a legitimate message as spam, but it missed 44 of 149 spam messages.</p>
+    </div>
+    <div class="card"><h2>Message length by class (characters)</h2><div class="ch"><canvas id="c3"></canvas></div>
+      <p class="note">Average length: spam 139 chars vs. ham 71 chars.</p></div>
+  </div>
+
+  <div class="grid two">
+    <div class="card"><h2>Top words in spam</h2><div id="w1"></div></div>
+    <div class="card"><h2>Top words in non-spam</h2><div id="w2"></div></div>
+  </div>
+</div>
+
+<script>
+var spam=getComputedStyle(document.documentElement);
+function col(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+var S=col('--spam'),H=col('--ham'),O=col('--ok'),M=col('--muted'),L=col('--line');
+Chart.defaults.color=M;Chart.defaults.borderColor=L;Chart.defaults.maintainAspectRatio=false;
+
+new Chart(document.getElementById('c1'),{type:'doughnut',
+ data:{labels:['Not spam','Spam'],datasets:[{data:[4825,747],backgroundColor:[H,S],borderWidth:0}]},
+ options:{cutout:'62%',plugins:{legend:{position:'bottom'}}}});
+
+new Chart(document.getElementById('c2'),{type:'bar',
+ data:{labels:['Accuracy','Precision','Recall','F1-Score'],datasets:[{data:[96.05,100,70.47,82.68],backgroundColor:[O,O,S,H],borderRadius:6}]},
+ options:{plugins:{legend:{display:false}},scales:{y:{min:0,max:100,ticks:{callback:function(v){return v+'%'}}}}}});
+
+new Chart(document.getElementById('c3'),{type:'bar',
+ data:{labels:['0-40','41-80','81-120','121-160','161-200','200+'],datasets:[
+  {label:'Not spam',data:[1742,1598,666,604,103,112],backgroundColor:H,borderRadius:4},
+  {label:'Spam',data:[9,39,87,550,61,1],backgroundColor:S,borderRadius:4}]},
+ options:{plugins:{legend:{position:'bottom'}},scales:{y:{title:{display:true,text:'Messages'}}}}});
+
+function words(id,data,color){
+  var max=data[0][1],h='';
+  data.forEach(function(d){h+='<div class="bar"><span>'+d[0]+'</span><span class="t"><i style="width:'+(d[1]/max*100)+'%;background:'+color+'"></i></span><span>'+d[1]+'</span></div>'});
+  document.getElementById(id).innerHTML=h;
+}
+words('w1',[['free',228],['txt',170],['mobile',129],['stop',128],['text',126],['claim',113],['reply',104],['www',98],['prize',93],['our',85]],S);
+words('w2',[['how',305],['what',274],['all',247],['know',237],['good',235],['got',234],['like',234],['then',233],['come',231],['its',222]],H);
+</script>
+</body>
+</html>
